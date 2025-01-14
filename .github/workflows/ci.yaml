@@ -1,0 +1,39 @@
+name: kubernetes-demo-app-ci-pipeline
+run-name: Kubernetes Demo App CI Pipeline
+on:
+  push:
+
+permissions:
+      id-token: write
+      contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@main
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: eu-west-1
+          role-to-assume: ${{secrets.ASSUME_ROLE}}
+          role-session-name: aws-github-session
+
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.AWS_ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        working-directory: myapp
+        run: |
+          # Build the Docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+          # Push the Docker image to AWS ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
